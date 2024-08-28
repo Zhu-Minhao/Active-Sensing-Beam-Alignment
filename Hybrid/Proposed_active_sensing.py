@@ -65,7 +65,7 @@ noiseSTD_per_dim = np.sqrt(0.5)   # STD of the Gaussian noise per real dim.
 #####################################################
 'Learning Parameters'
 initial_run = 1  # 0: Continue training; 1: Starts from the scratch
-n_epochs = 5     # Num of epochs
+n_epochs = 200     # Num of epochs
 learning_rate = 0.0001
 batch_per_epoch = 400
 batch_size_train = 1024
