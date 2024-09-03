@@ -1,11 +1,12 @@
+import os
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+
 import tensorflow.compat.v1 as tf
 tf.disable_v2_behavior()
 import numpy as np
 from tensorflow.keras.layers import BatchNormalization, Dense
-import os
 import scipy.io as sio
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 class MLPBlock(tf.keras.layers.Layer):
     def __init__(self, num_layers, dims, name):
@@ -52,8 +53,8 @@ class RNN(tf.keras.layers.Layer):
 N1 = 64   # Number of BS's antennas
 N2 = 32   # Number of UE's antennas
 tau = 10  # Communication rounds
-L = 3     # number of path
-
+L = 5     # number of path in testing stage
+L_train = 3 #number of path in training stage
 'Channel Information'
 phi_min = -60 * (np.pi / 180)  # Lower-bound of AoAs
 phi_max = 60 * (np.pi / 180)   # Upper-bound of AoAs
@@ -64,13 +65,13 @@ std_per_dim_alpha = np.sqrt(0.5)  # STD of the Gaussian fading coefficient per r
 noiseSTD_per_dim = np.sqrt(0.5)   # STD of the Gaussian noise per real dim.
 #####################################################
 'Learning Parameters'
-initial_run = 1  # 0: Continue training; 1: Starts from the scratch
-n_epochs = 200     # Num of epochs
+initial_run = 0  # 0: Continue training; 1: Starts from the scratch
+n_epochs = 0     # Num of epochs
 learning_rate = 0.0001
 batch_per_epoch = 400
 batch_size_train = 1024
 batch_size_val = 10000
-model_path = './params/active_learning_RNN_L_SNR_tau_N1_N2_' + str((L, snrdB, tau, N1, N2))
+model_path = './params/active_learning_RNN_L_SNR_tau_N1_N2_' + str((L_train, snrdB, tau, N1, N2))
 
 'Build the graph'
 tf.reset_default_graph()  # Reseting the graph
@@ -236,6 +237,7 @@ phi_2_val = np.random.uniform(low=phi_min, high=phi_max, size=[batch_size_val, L
 # alpha_val = test_data['alpha_val']
 # phi_1_val = test_data['phi_1_val']
 # phi_2_val = test_data['phi_2_val']
+
 feed_dict_val = {alpha_input: alpha_val,
                  phi_input_1: phi_1_val,
                  phi_input_2: phi_2_val,
@@ -249,35 +251,10 @@ with tf.Session() as sess:
     best_loss, opt_loss, rnd_loss = sess.run([loss, bf_gain_opt, bf_gain_rnd], feed_dict=feed_dict_val)
     print(-best_loss, opt_loss, rnd_loss)
     print(tf.test.is_gpu_available())  # Prints whether or not GPU is on
-    no_increase = 0
-    for epoch in range(n_epochs):
-        batch_iter = 0
-        for rnd_indices in range(batch_per_epoch):
-            alpha_train = np.random.normal(loc=np.real(mean_true_alpha), scale=std_per_dim_alpha,
-                                           size=[batch_size_train, L]) \
-                          + 1j * np.random.normal(loc=np.real(mean_true_alpha), scale=std_per_dim_alpha,
-                                                  size=[batch_size_train, L])
-            phi_1_train = np.random.uniform(low=phi_min, high=phi_max, size=[batch_size_train, L])
-            phi_2_train = np.random.uniform(low=phi_min, high=phi_max, size=[batch_size_train, L])
-            feed_dict_train = {alpha_input: alpha_train,
-                               phi_input_1: phi_1_train,
-                               phi_input_2: phi_2_train,
-                               lay['P']: P_snr}
 
-            sess.run(training_op, feed_dict=feed_dict_train)
-            batch_iter += 1
-        loss_val = sess.run(loss, feed_dict=feed_dict_val)
-        print('epoch', epoch, '  loss_test:%2.5f' % -loss_val, ' dB:%2.3f' % (10 * np.log10(-best_loss)),
-              '  opt_test:%2.3f' % (10 * np.log10(opt_loss)), 'no_increase:', no_increase)
-        if epoch % 10 == 9:  # Every 10 iterations it checks if the validation performace is improved, then saves parameters
-            if loss_val < best_loss:
-                save_path = saver.save(sess, model_path)
-                best_loss = loss_val
-                no_increase = 0
-            else:
-                no_increase = no_increase + 10
-
-    # sio.savemat('./results/RNN_tau_'+str(tau)+'.mat',{'bf_gain_dB':(10*np.log10(-best_loss)),
-    #                                         'bf_gain_opt_dB':(10*np.log10(opt_loss)),
-    #                                         'bf_gain_rnd_dB':(10*np.log10(rnd_loss)),
-    #                                         'N1_N2_tau_L':(N1,N2,tau,L), 'phi_min_max':(phi_min,phi_max),'snrdB':snrdB})
+    sio.savemat('./results/RNN_RandomG_generalize_tau_'+str(tau)+'_'+str(L)+'.mat',
+                {'bf_gain_dB':(
+            10*np.log10(-best_loss)),
+            'bf_gain_opt_dB':(10*np.log10(opt_loss)),
+            'bf_gain_rnd_dB':(10*np.log10(rnd_loss)),
+            'N1_N2_tau_L':(N1,N2,tau,L), 'phi_min_max':(phi_min,phi_max),'snrdB':snrdB})
