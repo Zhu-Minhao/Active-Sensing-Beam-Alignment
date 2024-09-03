@@ -70,7 +70,7 @@ learning_rate = 0.0001
 batch_per_epoch = 400
 batch_size_train = 1024
 batch_size_val = 10000
-model_path = './params_main/active_learning_RNN_L_SNR_tau_N1_N2_' + str((L, snrdB, tau, N1, N2))
+model_path = './params/active_learning_RNN_L_SNR_tau_N1_N2_' + str((L, snrdB, tau, N1, N2))
 
 'Build the graph'
 tf.reset_default_graph()  # Reseting the graph
